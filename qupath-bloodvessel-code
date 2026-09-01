@@ -1,0 +1,31 @@
+QuPath Script Editor Code (Density/Area Fraction/Annotations)			
+This code is used in Qupath to quantify the metrics within the parent box. 
+
+// Select the parent box annotation first, then run this			
+def parent = getSelectedObject()			
+if (parent == null) {			
+print "Select the parent box annotation first!"			
+return}			
+			
+// Get RBC annotations inside the parent (excluding the parent itself)			
+def children = parent.getChildObjects().findAll {			
+it.isAnnotation() && it.getPathClass()?.toString() == "RBC" }			
+// If they aren't nested as children, use spatial containment instead:			
+if (children.isEmpty()) {			
+def roi = parent.getROI()			
+children = getAnnotationObjects().findAll {			
+it != parent &&			
+it.getPathClass()?.toString() == "RBC" &&			
+roi.contains(it.getROI().getCentroidX(), it.getROI().getCentroidY())}}			
+			
+print "Total RBC annotations in box: " + children.size()			
+			
+// Total area of the RBC annotations			
+def childArea = children.sum { it.getROI().getArea() } ?: 0.0			
+			
+// Area of the box (µm² if calibrated)			
+def cal = getCurrentServer().getPixelCalibration()			
+def areaUm2 = parent.getROI().getScaledArea(cal.getPixelWidthMicrons(), cal.getPixelHeightMicrons())			
+print String.format("Box area: %.1f µm²", areaUm2)			
+print String.format("RBC count density: %.6f per µm²", children.size() / areaUm2)			
+print String.format("RBC area fraction: %.4f%%", (childArea / parent.getROI().getArea()) * 100)			
